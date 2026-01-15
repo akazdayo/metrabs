@@ -109,16 +109,44 @@ def resolve_joint_index(joint_names, candidates, label):
     raise ValueError(f"{label} joint not found. Available joints: {available}")
 
 
-Y_OFFSET = 1.0  # VRChat上での高さオフセット（メートル）
+CALIBRATION_FRAMES = 30  # キャリブレーションに使用するフレーム数
+TARGET_HIP_HEIGHT = 1.0  # 目標の腰の高さ（メートル）
 
 
-def send_osc_trackers(client, pose3d, tracker_indices):
+class Calibrator:
+    """起動時キャリブレーションを管理するクラス"""
+
+    def __init__(self, hip_index, num_frames=CALIBRATION_FRAMES):
+        self.hip_index = hip_index
+        self.num_frames = num_frames
+        self.samples = []
+        self.y_offset = None
+
+    def is_calibrated(self):
+        return self.y_offset is not None
+
+    def add_sample(self, pose3d):
+        if self.is_calibrated():
+            return
+        hip_y = pose3d[self.hip_index][1]
+        if not np.isnan(hip_y):
+            self.samples.append(hip_y)
+        if len(self.samples) >= self.num_frames:
+            avg_y = np.mean(self.samples)
+            # キャリブレーション時の腰の高さを基準にオフセットを計算
+            self.y_offset = -avg_y / 1000 + TARGET_HIP_HEIGHT
+
+    def get_progress(self):
+        return len(self.samples), self.num_frames
+
+
+def send_osc_trackers(client, pose3d, tracker_indices, y_offset):
     for tracker_id, joint_index in tracker_indices.items():
         joint = pose3d[joint_index]
         if np.isnan(joint).any():
             continue
         x = float(joint[0]) / 1000
-        y = -float(joint[1]) / 1000 + Y_OFFSET  # Y軸反転 + オフセット
+        y = -float(joint[1]) / 1000 + y_offset
         z = float(joint[2]) / 1000
         position = [x, y, z]
         client.send_message(f"/tracking/trackers/{tracker_id}/position", position)
@@ -177,6 +205,7 @@ def main():
         4: right_foot_index,
     }
     osc_client = udp_client.SimpleUDPClient(OSC_DEFAULT_HOST, OSC_DEFAULT_PORT)
+    calibrator = Calibrator(hip_index)
 
     # skeleton名の候補確認（困ったらこれ）
     # print("available skeletons:", list(estimator.per_skeleton_joint_names.keys()))
@@ -233,8 +262,38 @@ def main():
             poses2d = pred["poses2d"].detach().cpu().numpy()
             poses3d = pred["poses3d"].detach().cpu().numpy()
             if poses3d.size > 0:
-                send_osc_trackers(osc_client, poses3d[0], tracker_indices)
+                # キャリブレーション処理
+                if not calibrator.is_calibrated():
+                    calibrator.add_sample(poses3d[0])
+                else:
+                    send_osc_trackers(
+                        osc_client, poses3d[0], tracker_indices, calibrator.y_offset
+                    )
             draw_poses(frame, poses2d, joint_edges)
+
+        # キャリブレーション状態の表示
+        if not calibrator.is_calibrated():
+            current, total = calibrator.get_progress()
+            cv2.putText(
+                frame,
+                f"Calibrating... ({current}/{total})",
+                (10, 60),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0, 255, 255),
+                2,
+            )
+        else:
+            cv2.putText(
+                frame,
+                "Tracking",
+                (10, 60),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0, 255, 0),
+                2,
+            )
+
         cv2.putText(
             frame,
             f"{elapsed * 1000:.1f} ms",
