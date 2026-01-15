@@ -109,12 +109,18 @@ def resolve_joint_index(joint_names, candidates, label):
     raise ValueError(f"{label} joint not found. Available joints: {available}")
 
 
+Y_OFFSET = 1.0  # VRChat上での高さオフセット（メートル）
+
+
 def send_osc_trackers(client, pose3d, tracker_indices):
     for tracker_id, joint_index in tracker_indices.items():
         joint = pose3d[joint_index]
         if np.isnan(joint).any():
             continue
-        position = [float(value) for value in joint]
+        x = float(joint[0]) / 1000
+        y = -float(joint[1]) / 1000 + Y_OFFSET  # Y軸反転 + オフセット
+        z = float(joint[2]) / 1000
+        position = [x, y, z]
         client.send_message(f"/tracking/trackers/{tracker_id}/position", position)
         client.send_message(
             f"/tracking/trackers/{tracker_id}/rotation", [0.0, 0.0, 0.0]
