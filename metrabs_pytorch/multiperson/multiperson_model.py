@@ -331,8 +331,15 @@ class Pose3dEstimator(torch.nn.Module):
         else:
             # Chunk the image crops into batches and predict them one by one
             n_total_boxes = len(boxes_flat)
+            if n_total_boxes == 0:
+                return torch.zeros(
+                    (0, num_aug, self.joint_info.n_joints, 3),
+                    device=images.device,
+                    dtype=images.dtype,
+                )
             n_batches = int(np.ceil(n_total_boxes / boxes_per_batch))
             poses3d_batches = []
+
             # CROP
             # crop_batches = []
             for i in range(n_batches):

@@ -7,8 +7,8 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torchvision.io
 import cameralib
+import cv2
 import posepile.joint_info
 import simplepyutils as spu
 
@@ -72,25 +72,54 @@ def load_multiperson_model(model_dir: str, device: torch.device):
         )
 
 
+def draw_poses(frame, poses2d, joint_edges):
+    if poses2d.size == 0:
+        return
+
+    for pose in poses2d:
+        for joint_from, joint_to in joint_edges:
+            pt1 = pose[joint_from]
+            pt2 = pose[joint_to]
+            if np.isnan(pt1).any() or np.isnan(pt2).any():
+                continue
+            cv2.line(
+                frame,
+                (int(pt1[0]), int(pt1[1])),
+                (int(pt2[0]), int(pt2[1])),
+                (255, 0, 0),
+                2,
+            )
+
+        for joint in pose:
+            if np.isnan(joint).any():
+                continue
+            cv2.circle(frame, (int(joint[0]), int(joint[1])), 3, (0, 255, 0), -1)
+
+
 def main():
     model_dir = MODEL_DIR_NAME
     ensure_model_dir(model_dir)
-    image_path = "test_image_3dpw.jpg"
     skeleton = "smpl_24"  # もしKeyErrorなら下のprintで候補を見て変更
 
     device = torch.device("cuda")
 
     print("loading model...")
     estimator = load_multiperson_model(model_dir, device)
+    joint_edges = estimator.per_skeleton_joint_edges[skeleton].cpu().numpy()
 
     # skeleton名の候補確認（困ったらこれ）
     # print("available skeletons:", list(estimator.per_skeleton_joint_names.keys()))
 
-    print("decoding image...")
-    image = torchvision.io.read_image(image_path).to(device)  # uint8, CHW
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        raise RuntimeError("camera not available")
 
-    print("starting prediction...")
-    camera = cameralib.Camera.from_fov(fov_degrees=55, imshape=image.shape[1:])
+    ret, frame = cap.read()
+    if not ret:
+        cap.release()
+        raise RuntimeError("failed to read from camera")
+
+    camera = cameralib.Camera.from_fov(fov_degrees=55, imshape=frame.shape[:2])
     intrinsic_matrix = torch.as_tensor(camera.intrinsic_matrix, device=device)
     distortion_coeffs = torch.as_tensor(
         multiperson_model.DEFAULT_DISTORTION, device=device
@@ -100,25 +129,54 @@ def main():
     )
     world_up_vector = torch.as_tensor(multiperson_model.DEFAULT_WORLD_UP, device=device)
 
-    for i in range(500):
-        start = time.time()
-        with torch.inference_mode():
-            pred = estimator.detect_poses(
-                image,
-                intrinsic_matrix=intrinsic_matrix,
-                distortion_coeffs=distortion_coeffs,
-                extrinsic_matrix=extrinsic_matrix,
-                world_up_vector=world_up_vector,
-                default_fov_degrees=55,
-                skeleton=skeleton,
-                num_aug=1,
-                detector_threshold=0.3,
-            )
+    print("starting realtime prediction...")
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-        # numpy化（TFの tf.nest.map_structure 相当）
-        pred_np = {k: v.detach().cpu().numpy() for k, v in pred.items()}
-        # print(pred_np)
-        print("elapsed:", time.time() - start)
+        start = time.time()
+        pred = None
+        try:
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            image = torch.from_numpy(frame_rgb).to(device).permute(2, 0, 1)
+            with torch.inference_mode():
+                pred = estimator.detect_poses(
+                    image,
+                    intrinsic_matrix=intrinsic_matrix,
+                    distortion_coeffs=distortion_coeffs,
+                    extrinsic_matrix=extrinsic_matrix,
+                    world_up_vector=world_up_vector,
+                    default_fov_degrees=55,
+                    skeleton=skeleton,
+                    num_aug=5,
+                    detector_threshold=0.2,
+                    max_detections=1,
+                )
+        except (ValueError, RuntimeError) as exc:
+            if "expected a non-empty list of Tensors" not in str(exc):
+                raise
+
+        elapsed = time.time() - start
+        if pred is not None:
+            poses2d = pred["poses2d"].detach().cpu().numpy()
+            draw_poses(frame, poses2d, joint_edges)
+        cv2.putText(
+            frame,
+            f"{elapsed * 1000:.1f} ms",
+            (10, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (0, 255, 0),
+            2,
+        )
+
+        cv2.imshow("Metrabs Camera", frame)
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":

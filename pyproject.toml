@@ -17,6 +17,7 @@ dependencies = [
     "tensorflow==2.15",
     "torch>=2.9.1",
     "torchvision>=0.24.1",
+    "opencv-python>=4.11.0.86",
 ]
 
 [tool.uv.sources]
