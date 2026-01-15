@@ -218,3 +218,4 @@ __marimo__/
 # metrabs
 metrabs_eff2l_384px_800k_28ds_pytorch/
 yolov8m.pt
+.envrc
