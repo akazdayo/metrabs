@@ -1,3 +1,6 @@
+このリポジトリは[MeTRAbs](https://github.com/isarandi/metrabs)を元に大きく改変されています。
+以下、元リポジトリのREADME.md本文
+
 # MeTRAbs Absolute 3D Human Pose Estimator
 
 <a href="https://colab.research.google.com/github/isarandi/metrabs/blob/master/metrabs_demo.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a><br>
