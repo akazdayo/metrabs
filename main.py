@@ -11,6 +11,7 @@ import cameralib
 import cv2
 import posepile.joint_info
 import simplepyutils as spu
+from pythonosc import udp_client
 
 import metrabs_pytorch.backbones.efficientnet as effnet_pt
 import metrabs_pytorch.models.metrabs as metrabs_pt
@@ -20,6 +21,8 @@ from metrabs_pytorch.util import get_config
 
 MODEL_TARBALL_URL = "https://bit.ly/metrabs_l_pt"
 MODEL_DIR_NAME = "metrabs_eff2l_384px_800k_28ds_pytorch"
+OSC_DEFAULT_HOST = "127.0.0.1"
+OSC_DEFAULT_PORT = 9000
 
 
 def ensure_model_dir(model_dir: str) -> Path:
@@ -96,6 +99,28 @@ def draw_poses(frame, poses2d, joint_edges):
             cv2.circle(frame, (int(joint[0]), int(joint[1])), 3, (0, 255, 0), -1)
 
 
+def resolve_joint_index(joint_names, candidates, label):
+    joint_index_map = {name.lower(): idx for idx, name in enumerate(joint_names)}
+    for candidate in candidates:
+        key = candidate.lower()
+        if key in joint_index_map:
+            return joint_index_map[key]
+    available = ", ".join(joint_names)
+    raise ValueError(f"{label} joint not found. Available joints: {available}")
+
+
+def send_osc_trackers(client, pose3d, tracker_indices):
+    for tracker_id, joint_index in tracker_indices.items():
+        joint = pose3d[joint_index]
+        if np.isnan(joint).any():
+            continue
+        position = [float(value) for value in joint]
+        client.send_message(f"/tracking/trackers/{tracker_id}/position", position)
+        client.send_message(
+            f"/tracking/trackers/{tracker_id}/rotation", [0.0, 0.0, 0.0]
+        )
+
+
 def main():
     model_dir = MODEL_DIR_NAME
     ensure_model_dir(model_dir)
@@ -106,6 +131,46 @@ def main():
     print("loading model...")
     estimator = load_multiperson_model(model_dir, device)
     joint_edges = estimator.per_skeleton_joint_edges[skeleton].cpu().numpy()
+    joint_names = estimator.per_skeleton_joint_names[skeleton]
+    hip_index = resolve_joint_index(
+        joint_names, ["pelv", "pelvis", "hip", "hips", "root", "spi1"], "hip"
+    )
+    left_foot_index = resolve_joint_index(
+        joint_names,
+        [
+            "lank",
+            "left_ankle",
+            "leftankle",
+            "ltoe",
+            "left_toe",
+            "lefttoe",
+            "l_foot",
+            "left_foot",
+            "leftfoot",
+        ],
+        "left foot",
+    )
+    right_foot_index = resolve_joint_index(
+        joint_names,
+        [
+            "rank",
+            "right_ankle",
+            "rightankle",
+            "rtoe",
+            "right_toe",
+            "righttoe",
+            "r_foot",
+            "right_foot",
+            "rightfoot",
+        ],
+        "right foot",
+    )
+    tracker_indices = {
+        1: hip_index,
+        3: left_foot_index,
+        4: right_foot_index,
+    }
+    osc_client = udp_client.SimpleUDPClient(OSC_DEFAULT_HOST, OSC_DEFAULT_PORT)
 
     # skeleton名の候補確認（困ったらこれ）
     # print("available skeletons:", list(estimator.per_skeleton_joint_names.keys()))
@@ -160,6 +225,9 @@ def main():
         elapsed = time.time() - start
         if pred is not None:
             poses2d = pred["poses2d"].detach().cpu().numpy()
+            poses3d = pred["poses3d"].detach().cpu().numpy()
+            if poses3d.size > 0:
+                send_osc_trackers(osc_client, poses3d[0], tracker_indices)
             draw_poses(frame, poses2d, joint_edges)
         cv2.putText(
             frame,
