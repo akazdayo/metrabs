@@ -100,20 +100,27 @@ def draw_poses(frame, poses2d, joint_edges):
             cv2.circle(frame, (int(joint[0]), int(joint[1])), 3, (0, 255, 0), -1)
 
 
-def send_udp_pose(sock, addr, pose3d, joint_names, joint_edges):
+def send_udp_pose(sock, addr, pose3d, pose2d, frame_shape, joint_names, joint_edges):
     """Send all joint positions and skeleton edges via UDP.
 
     Coordinate conversion: MeTRAbs camera space (mm, Y-down, Z-forward)
     -> Godot world space (meters, Y-up, Z-backward)
+
+    Joints whose 2D projection falls outside the camera frame are sent as null.
     """
+    h, w = frame_shape[:2]
     positions = []
-    for joint in pose3d:
-        if np.isnan(joint).any():
+    for joint3d, joint2d in zip(pose3d, pose2d):
+        if np.isnan(joint3d).any() or np.isnan(joint2d).any():
             positions.append(None)
             continue
-        x = float(joint[0]) / 1000
-        y = -float(joint[1]) / 1000
-        z = -float(joint[2]) / 1000
+        px, py = float(joint2d[0]), float(joint2d[1])
+        if px < 0 or px >= w or py < 0 or py >= h:
+            positions.append(None)
+            continue
+        x = float(joint3d[0]) / 1000
+        y = -float(joint3d[1]) / 1000
+        z = -float(joint3d[2]) / 1000
         positions.append([x, y, z])
 
     data = json.dumps(
@@ -198,7 +205,15 @@ def main():
             poses2d = pred["poses2d"].detach().cpu().numpy()
             poses3d = pred["poses3d"].detach().cpu().numpy()
             if poses3d.size > 0:
-                send_udp_pose(udp_sock, udp_addr, poses3d[0], joint_names, joint_edges)
+                send_udp_pose(
+                    udp_sock,
+                    udp_addr,
+                    poses3d[0],
+                    poses2d[0],
+                    frame.shape,
+                    joint_names,
+                    joint_edges,
+                )
             draw_poses(frame, poses2d, joint_edges)
         cv2.putText(
             frame,
