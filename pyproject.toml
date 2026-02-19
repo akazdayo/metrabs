@@ -24,3 +24,9 @@ dependencies = [
 [tool.uv.sources]
 cameralib = { git = "https://github.com/isarandi/cameralib.git" }
 posepile = { git = "https://github.com/isarandi/posepile.git" }
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.1",
+    "ty>=0.0.17",
+]
