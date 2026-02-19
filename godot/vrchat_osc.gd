@@ -16,6 +16,10 @@ extends Node
 @export var vrchat_port: int = 9000
 ## Enable / disable OSC sending
 @export var enabled: bool = true
+## Height offset in meters added to Y position in VRChat space
+@export var y_offset: float = 1.0
+@export var x_offset: float = 0.0
+@export var z_offset: float = 0.0
 ## Send rotation estimates derived from bone directions.
 ## Currently limited to pitch/yaw only (no roll).  Vertical bones
 ## (hip, chest, head) produce unstable rotations.  Enable with caution.
@@ -157,7 +161,7 @@ func _get_joint(positions: Array, joint_name: String):
 
 ## Godot (right-handed, Y-up, -Z fwd) → VRChat/Unity (left-handed, Y-up, +Z fwd).
 func _to_vrchat_position(joint: Array) -> Vector3:
-	return Vector3(joint[0], joint[1], -joint[2])
+	return Vector3(joint[0] + x_offset, joint[1] + y_offset, -joint[2] + z_offset)
 
 
 ## Estimate euler angles (degrees) from a bone direction.

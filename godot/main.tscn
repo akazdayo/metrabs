@@ -1,17 +1,24 @@
-[gd_scene load_steps=3 format=3 uid="uid://dmmdefts0fhan"]
+[gd_scene load_steps=4 format=3 uid="uid://dmmdefts0fhan"]
 
 [ext_resource type="Script" uid="uid://u2i85coyk4pc" path="res://pose_receiver.gd" id="1_script"]
-[ext_resource type="Script" path="res://vrchat_osc.gd" id="2_vrchat_osc"]
+[ext_resource type="Script" uid="uid://b4c3uyodnniox" path="res://vrchat_osc.gd" id="2_vrchat_osc"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_0xm2m"]
 
 [node name="root" type="Node3D"]
 script = ExtResource("1_script")
 
 [node name="VRChatOSC" type="Node" parent="."]
 script = ExtResource("2_vrchat_osc")
+z_offset = -1.5
 
 [node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.1033906)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1.103)
 current = true
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 3, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(3.6408312, 0, 0, 0, 0.004756987, 0, 0, 0, 3.7708726, 0, 0, 0)
+mesh = SubResource("BoxMesh_0xm2m")
