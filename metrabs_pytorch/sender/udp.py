@@ -7,7 +7,7 @@ import numpy as np
 
 
 DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 9000
+DEFAULT_PORT = 9100
 
 
 class UdpPoseSender:

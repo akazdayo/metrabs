@@ -23,7 +23,7 @@ def run(
     camera_index=0,
     fov_degrees=55,
     udp_host="127.0.0.1",
-    udp_port=9000,
+    udp_port=9100,
     num_aug=5,
     detector_threshold=0.2,
     max_detections=1,

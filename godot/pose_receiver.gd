@@ -1,7 +1,7 @@
 extends Node3D
 
 ## UDP port to listen on (must match main.py UDP_DEFAULT_PORT)
-@export var udp_port: int = 9000
+@export var udp_port: int = 9100
 ## Radius of joint spheres in meters
 @export var joint_radius: float = 0.03
 ## Color of joint spheres
@@ -12,6 +12,9 @@ extends Node3D
 var udp := PacketPeerUDP.new()
 var joint_nodes: Dictionary = {}  # int index -> MeshInstance3D
 var joint_edges: Array = []
+
+# VRChat OSC forwarding
+var _vrchat_osc: Node
 
 # Shared resources (created once, reused for all spheres)
 var _sphere_mesh: SphereMesh
@@ -54,6 +57,9 @@ func _ready() -> void:
 	_line_mesh_instance.material_override = line_material
 
 	add_child(_line_mesh_instance)
+
+	# Look up VRChatOSC sibling node (added in main.tscn)
+	_vrchat_osc = get_node_or_null("VRChatOSC")
 
 
 func _process(_delta: float) -> void:
@@ -110,6 +116,10 @@ func _update_pose(data: Dictionary) -> void:
 
 	# Draw bone connections
 	_draw_bones(positions)
+
+	# Forward to VRChat OSC if available
+	if _vrchat_osc and data.has("joint_names"):
+		_vrchat_osc.update_tracking(positions, data["joint_names"])
 
 
 func _create_sphere(index: int) -> MeshInstance3D:

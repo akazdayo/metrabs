@@ -1,9 +1,13 @@
-[gd_scene load_steps=2 format=3 uid="uid://dmmdefts0fhan"]
+[gd_scene load_steps=3 format=3 uid="uid://dmmdefts0fhan"]
 
 [ext_resource type="Script" uid="uid://u2i85coyk4pc" path="res://pose_receiver.gd" id="1_script"]
+[ext_resource type="Script" path="res://vrchat_osc.gd" id="2_vrchat_osc"]
 
 [node name="root" type="Node3D"]
 script = ExtResource("1_script")
+
+[node name="VRChatOSC" type="Node" parent="."]
+script = ExtResource("2_vrchat_osc")
 
 [node name="Camera3D" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.1033906)
