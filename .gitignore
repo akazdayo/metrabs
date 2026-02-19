@@ -219,3 +219,21 @@ __marimo__/
 metrabs_eff2l_384px_800k_28ds_pytorch/
 yolov8m.pt
 .envrc
+
+# Godot 4+ specific ignores
+.godot/
+.nomedia
+
+# Godot-specific ignores
+.import/
+export.cfg
+export_credentials.cfg
+*.tmp
+
+# Imported translations (automatically generated from CSV files)
+*.translation
+
+# Mono-specific ignores
+.mono/
+data_*/
+mono_crash.*.json

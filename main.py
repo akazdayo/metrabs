@@ -1,3 +1,5 @@
+import json
+import socket
 import time
 import os
 import tarfile
@@ -11,7 +13,6 @@ import cameralib
 import cv2
 import posepile.joint_info
 import simplepyutils as spu
-from pythonosc import udp_client
 
 import metrabs_pytorch.backbones.efficientnet as effnet_pt
 import metrabs_pytorch.models.metrabs as metrabs_pt
@@ -21,8 +22,8 @@ from metrabs_pytorch.util import get_config
 
 MODEL_TARBALL_URL = "https://bit.ly/metrabs_l_pt"
 MODEL_DIR_NAME = "metrabs_eff2l_384px_800k_28ds_pytorch"
-OSC_DEFAULT_HOST = "127.0.0.1"
-OSC_DEFAULT_PORT = 9000
+UDP_DEFAULT_HOST = "127.0.0.1"
+UDP_DEFAULT_PORT = 9000
 
 
 def ensure_model_dir(model_dir: str) -> Path:
@@ -99,32 +100,33 @@ def draw_poses(frame, poses2d, joint_edges):
             cv2.circle(frame, (int(joint[0]), int(joint[1])), 3, (0, 255, 0), -1)
 
 
-def resolve_joint_index(joint_names, candidates, label):
-    joint_index_map = {name.lower(): idx for idx, name in enumerate(joint_names)}
-    for candidate in candidates:
-        key = candidate.lower()
-        if key in joint_index_map:
-            return joint_index_map[key]
-    available = ", ".join(joint_names)
-    raise ValueError(f"{label} joint not found. Available joints: {available}")
+def send_udp_pose(sock, addr, pose3d, joint_names, joint_edges):
+    """Send all joint positions and skeleton edges via UDP.
 
-
-Y_OFFSET = 1.0  # VRChat上での高さオフセット（メートル）
-
-
-def send_osc_trackers(client, pose3d, tracker_indices):
-    for tracker_id, joint_index in tracker_indices.items():
-        joint = pose3d[joint_index]
+    Coordinate conversion: MeTRAbs camera space (mm, Y-down, Z-forward)
+    -> Godot world space (meters, Y-up, Z-backward)
+    """
+    positions = []
+    for joint in pose3d:
         if np.isnan(joint).any():
+            positions.append(None)
             continue
         x = float(joint[0]) / 1000
-        y = -float(joint[1]) / 1000 + Y_OFFSET  # Y軸反転 + オフセット
-        z = float(joint[2]) / 1000
-        position = [x, y, z]
-        client.send_message(f"/tracking/trackers/{tracker_id}/position", position)
-        client.send_message(
-            f"/tracking/trackers/{tracker_id}/rotation", [0.0, 0.0, 0.0]
-        )
+        y = -float(joint[1]) / 1000
+        z = -float(joint[2]) / 1000
+        positions.append([x, y, z])
+
+    data = json.dumps(
+        {
+            "joint_names": [str(n) for n in joint_names],
+            "joint_positions": positions,
+            "joint_edges": joint_edges.tolist(),
+        }
+    ).encode("utf-8")
+    try:
+        sock.sendto(data, addr)
+    except OSError as e:
+        print(f"UDP send failed: {e}")
 
 
 def main():
@@ -138,45 +140,8 @@ def main():
     estimator = load_multiperson_model(model_dir, device)
     joint_edges = estimator.per_skeleton_joint_edges[skeleton].cpu().numpy()
     joint_names = estimator.per_skeleton_joint_names[skeleton]
-    hip_index = resolve_joint_index(
-        joint_names, ["pelv", "pelvis", "hip", "hips", "root", "spi1"], "hip"
-    )
-    left_foot_index = resolve_joint_index(
-        joint_names,
-        [
-            "lank",
-            "left_ankle",
-            "leftankle",
-            "ltoe",
-            "left_toe",
-            "lefttoe",
-            "l_foot",
-            "left_foot",
-            "leftfoot",
-        ],
-        "left foot",
-    )
-    right_foot_index = resolve_joint_index(
-        joint_names,
-        [
-            "rank",
-            "right_ankle",
-            "rightankle",
-            "rtoe",
-            "right_toe",
-            "righttoe",
-            "r_foot",
-            "right_foot",
-            "rightfoot",
-        ],
-        "right foot",
-    )
-    tracker_indices = {
-        1: hip_index,
-        3: left_foot_index,
-        4: right_foot_index,
-    }
-    osc_client = udp_client.SimpleUDPClient(OSC_DEFAULT_HOST, OSC_DEFAULT_PORT)
+    udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_addr = (UDP_DEFAULT_HOST, UDP_DEFAULT_PORT)
 
     # skeleton名の候補確認（困ったらこれ）
     # print("available skeletons:", list(estimator.per_skeleton_joint_names.keys()))
@@ -233,7 +198,7 @@ def main():
             poses2d = pred["poses2d"].detach().cpu().numpy()
             poses3d = pred["poses3d"].detach().cpu().numpy()
             if poses3d.size > 0:
-                send_osc_trackers(osc_client, poses3d[0], tracker_indices)
+                send_udp_pose(udp_sock, udp_addr, poses3d[0], joint_names, joint_edges)
             draw_poses(frame, poses2d, joint_edges)
         cv2.putText(
             frame,

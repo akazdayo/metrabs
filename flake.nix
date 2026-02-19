@@ -66,6 +66,7 @@
           buildInputs = with pkgs; [
             uv
             python311
+            nodejs_24
             libGL
             zlib
             libjpeg_turbo

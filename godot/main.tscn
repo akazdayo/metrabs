@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3 uid="uid://dmmdefts0fhan"]
+
+[ext_resource type="Script" uid="uid://u2i85coyk4pc" path="res://pose_receiver.gd" id="1_script"]
+
+[node name="root" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.1033906)
+current = true
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 3, 0)
