@@ -15,12 +15,6 @@ Web カメラ映像から人物の 3D 姿勢を推定し、VRChat で扱いや�
 - VRChat 向け OSC 送信
 - 2D 骨格と推論時間の画面表示
 
-## 実行前提
-
-この fork は **Nix 前提** です。
-ネイティブ依存（OpenGL / Qt / X11 など）は flake で揃え、Python パッケージ管理には `uv` を使います。
-`DATA_ROOT` は flake 側で `DATA_ROOT="${DATA_ROOT:-$PWD/data}"` を補います。
-
 以下、元リポジトリのREADME.md本文
 
 # MeTRAbs Absolute 3D Human Pose Estimator
