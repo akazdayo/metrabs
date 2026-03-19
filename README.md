@@ -1,11 +1,19 @@
 このリポジトリは[MeTRAbs](https://github.com/isarandi/metrabs)を元に大きく改変されています。
 
-## この fork について
+## main.py について
 
-この fork は upstream README にある TensorFlow 中心の使い方とはかなり異なり、現在は **PyTorch + webcam + OSC** 用途に寄っています。
+この fork の現在の主な実行入口は `main.py` です。
 
-主な差分:
-- 実行入口は `main.py`
+`main.py` は次のことを行います。
+- PyTorch 版 Metrabs モデルをロードする
+- Web カメラからフレームを取得する
+- 各フレームで 3D 姿勢推定を行う
+- 推定結果から腰・左足・右足の位置を取り出す
+- それらを OSC で送信する
+- 同時に 2D 骨格と推論時間を画面表示する
+
+実行まわりの前提:
+- 実行コマンドは `uv run main.py`
 - 依存管理は **uv** 中心
 - **Nix はネイティブ依存の補助**（OpenGL / Qt / X11 など）
 - 実行時の `DATA_ROOT` は flake 側で `DATA_ROOT="${DATA_ROOT:-$PWD/data}"` を補います
