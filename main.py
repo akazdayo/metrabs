@@ -1,8 +1,11 @@
+import csv
+from collections import deque
 import time
 import os
 import tarfile
 import tempfile
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -23,6 +26,8 @@ MODEL_TARBALL_URL = "https://bit.ly/metrabs_l_pt"
 MODEL_DIR_NAME = "metrabs_eff2l_384px_800k_28ds_pytorch"
 OSC_DEFAULT_HOST = "127.0.0.1"
 OSC_DEFAULT_PORT = 9000
+INFERENCE_GRAPH_HISTORY = 120
+INFERENCE_GRAPH_SIZE = (360, 640)
 
 
 def ensure_model_dir(model_dir: str) -> Path:
@@ -127,6 +132,118 @@ def send_osc_trackers(client, pose3d, tracker_indices):
         )
 
 
+def render_inference_time_graph(elapsed_history_ms):
+    height, width = INFERENCE_GRAPH_SIZE
+    graph = np.full((height, width, 3), 24, dtype=np.uint8)
+    left_margin = 70
+    right_margin = 20
+    top_margin = 45
+    bottom_margin = 50
+    plot_width = width - left_margin - right_margin
+    plot_height = height - top_margin - bottom_margin
+
+    cv2.rectangle(
+        graph,
+        (left_margin, top_margin),
+        (left_margin + plot_width, top_margin + plot_height),
+        (90, 90, 90),
+        1,
+    )
+    cv2.putText(
+        graph,
+        "Inference Time",
+        (20, 30),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        (230, 230, 230),
+        2,
+    )
+
+    if not elapsed_history_ms:
+        cv2.putText(
+            graph,
+            "Waiting for samples...",
+            (left_margin, top_margin + plot_height // 2),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (180, 180, 180),
+            2,
+        )
+        return graph
+
+    max_ms = max(50.0, max(elapsed_history_ms) * 1.15)
+    grid_color = (55, 55, 55)
+    label_color = (180, 180, 180)
+    for ratio in (0.0, 0.25, 0.5, 0.75, 1.0):
+        y = top_margin + int((1.0 - ratio) * plot_height)
+        cv2.line(
+            graph,
+            (left_margin, y),
+            (left_margin + plot_width, y),
+            grid_color,
+            1,
+        )
+        value_ms = max_ms * ratio
+        cv2.putText(
+            graph,
+            f"{value_ms:.0f}",
+            (10, y + 5),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.45,
+            label_color,
+            1,
+        )
+
+    sample_count = len(elapsed_history_ms)
+    points = []
+    for index, elapsed_ms in enumerate(elapsed_history_ms):
+        if sample_count == 1:
+            x = left_margin
+        else:
+            x = left_margin + int(index * (plot_width - 1) / (sample_count - 1))
+        y = top_margin + plot_height - int(elapsed_ms / max_ms * plot_height)
+        points.append((x, y))
+
+    if len(points) >= 2:
+        cv2.polylines(
+            graph,
+            [np.array(points, dtype=np.int32)],
+            False,
+            (0, 220, 255),
+            2,
+        )
+    else:
+        cv2.circle(graph, points[0], 3, (0, 220, 255), -1)
+
+    latest_ms = elapsed_history_ms[-1]
+    average_ms = sum(elapsed_history_ms) / sample_count
+    cv2.putText(
+        graph,
+        f"latest {latest_ms:.1f} ms",
+        (left_margin, height - 18),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.55,
+        (0, 220, 255),
+        2,
+    )
+    cv2.putText(
+        graph,
+        f"avg {average_ms:.1f} ms   max {max(elapsed_history_ms):.1f} ms",
+        (left_margin + 190, height - 18),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.55,
+        (200, 200, 200),
+        1,
+    )
+
+    return graph
+
+
+def create_inference_csv_path():
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return Path(f"inference_times_{timestamp}.csv")
+
+
 def main():
     model_dir = MODEL_DIR_NAME
     ensure_model_dir(model_dir)
@@ -199,55 +316,85 @@ def main():
         multiperson_model.DEFAULT_EXTRINSIC_MATRIX, device=device
     )
     world_up_vector = torch.as_tensor(multiperson_model.DEFAULT_WORLD_UP, device=device)
+    elapsed_history_ms = deque(maxlen=INFERENCE_GRAPH_HISTORY)
+    csv_path = create_inference_csv_path()
+    frame_index = 0
 
+    print(f"writing inference times to {csv_path}")
     print("starting realtime prediction...")
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        start = time.time()
-        pred = None
-        try:
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            image = torch.from_numpy(frame_rgb).to(device).permute(2, 0, 1)
-            with torch.inference_mode():
-                pred = estimator.detect_poses(
-                    image,
-                    intrinsic_matrix=intrinsic_matrix,
-                    distortion_coeffs=distortion_coeffs,
-                    extrinsic_matrix=extrinsic_matrix,
-                    world_up_vector=world_up_vector,
-                    default_fov_degrees=55,
-                    skeleton=skeleton,
-                    num_aug=5,
-                    detector_threshold=0.2,
-                    max_detections=1,
-                )
-        except (ValueError, RuntimeError) as exc:
-            if "expected a non-empty list of Tensors" not in str(exc):
-                raise
-
-        elapsed = time.time() - start
-        if pred is not None:
-            poses2d = pred["poses2d"].detach().cpu().numpy()
-            poses3d = pred["poses3d"].detach().cpu().numpy()
-            if poses3d.size > 0:
-                send_osc_trackers(osc_client, poses3d[0], tracker_indices)
-            draw_poses(frame, poses2d, joint_edges)
-        cv2.putText(
-            frame,
-            f"{elapsed * 1000:.1f} ms",
-            (10, 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (0, 255, 0),
-            2,
+    with csv_path.open("w", newline="") as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(
+            ["frame_index", "timestamp", "elapsed_ms", "num_poses_detected"]
         )
 
-        cv2.imshow("Metrabs Camera", frame)
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            start = time.time()
+            pred = None
+            try:
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                image = torch.from_numpy(frame_rgb).to(device).permute(2, 0, 1)
+                with torch.inference_mode():
+                    pred = estimator.detect_poses(
+                        image,
+                        intrinsic_matrix=intrinsic_matrix,
+                        distortion_coeffs=distortion_coeffs,
+                        extrinsic_matrix=extrinsic_matrix,
+                        world_up_vector=world_up_vector,
+                        default_fov_degrees=55,
+                        skeleton=skeleton,
+                        num_aug=5,
+                        detector_threshold=0.2,
+                        max_detections=1,
+                    )
+            except (ValueError, RuntimeError) as exc:
+                if "expected a non-empty list of Tensors" not in str(exc):
+                    raise
+
+            elapsed = time.time() - start
+            elapsed_ms = elapsed * 1000
+            elapsed_history_ms.append(elapsed_ms)
+
+            num_poses_detected = 0
+            if pred is not None:
+                poses2d = pred["poses2d"].detach().cpu().numpy()
+                poses3d = pred["poses3d"].detach().cpu().numpy()
+                num_poses_detected = len(poses3d)
+                if poses3d.size > 0:
+                    send_osc_trackers(osc_client, poses3d[0], tracker_indices)
+                draw_poses(frame, poses2d, joint_edges)
+
+            writer.writerow(
+                [
+                    frame_index,
+                    datetime.now().isoformat(timespec="milliseconds"),
+                    f"{elapsed_ms:.3f}",
+                    num_poses_detected,
+                ]
+            )
+
+            cv2.putText(
+                frame,
+                f"{elapsed_ms:.1f} ms",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0, 255, 0),
+                2,
+            )
+
+            cv2.imshow("Metrabs Camera", frame)
+            cv2.imshow(
+                "Inference Time Graph", render_inference_time_graph(elapsed_history_ms)
+            )
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+
+            frame_index += 1
 
     cap.release()
     cv2.destroyAllWindows()
