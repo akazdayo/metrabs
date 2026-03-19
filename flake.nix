@@ -53,6 +53,7 @@
           export LD_LIBRARY_PATH="${libraryPath}:/run/opengl-driver/lib:$LD_LIBRARY_PATH"
           export QT_QPA_PLATFORM="xcb"
           export UV_PYTHON="${uvPython}"
+          export DATA_ROOT="''${DATA_ROOT:-$PWD/data}"
         '';
         runScript = pkgs.writeShellApplication {
           name = "metrabs-run";
