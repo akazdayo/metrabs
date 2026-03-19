@@ -12,6 +12,14 @@
 - モデルは `metrabs_eff2l_384px_800k_28ds_pytorch` を参照します。
 - `DATA_ROOT` 環境変数がデータ参照の基準になります。
 
+## このforkの実行方針
+
+- **Python依存は uv で管理**します。
+- **Nix は OpenCV / Qt / OpenGL / X11 などのネイティブ依存の補助だけ**に使います。
+- ふだんの実行は `uv run main.py` を前提にします。
+- Nix を使う場合も、Pythonパッケージ解決は `uv` が担当します。
+- TensorFlow 系は通常実行には不要で、`metrabs_pytorch/convert_model_from_tf.py` を使う時だけ optional dependency を入れます（`uv sync --extra convert`）。
+
 ## セットアップ（依存関係）
 
 - `uv sync` で依存関係をインストールします。

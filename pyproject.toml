@@ -1,24 +1,28 @@
 [project]
 name = "metrabs"
 version = "0.1.0"
-description = "Add your description here"
+description = "PyTorch/OSC webcam runner for the akazdayo/metrabs fork"
 readme = "README.md"
 requires-python = ">=3.10,<3.12"
 dependencies = [
     "addict",
     "cameralib",
+    "einops",
     "hydra-core",
     "imageio",
     "jpeg4py",
-    "einops",
-    "ultralytics",
+    "opencv-python>=4.11.0.86",
     "posepile",
-    "tensorflow-hub>=0.16.1",
-    "tensorflow==2.15",
+    "python-osc>=1.9.3",
     "torch>=2.9.1",
     "torchvision>=0.24.1",
-    "opencv-python>=4.11.0.86",
-    "python-osc>=1.9.3",
+    "ultralytics",
+]
+
+[project.optional-dependencies]
+convert = [
+    "tensorflow==2.15",
+    "tensorflow-hub>=0.16.1",
 ]
 
 [tool.uv.sources]
