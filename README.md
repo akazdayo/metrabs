@@ -1,15 +1,15 @@
-このリポジトリは[MeTRAbs](https://github.com/isarandi/metrabs)を元に大きく改変されています。
+## この fork の目的
 
-## main.py について
+この fork の目的は、**Metrabs を使って VRChat OSC のフルトラを実装すること**です。
 
-この fork の現在の主な実行入口は `main.py` です。
+現在の主な実行入口は `main.py` です。
 
 `main.py` は次のことを行います。
 - PyTorch 版 Metrabs モデルをロードする
 - Web カメラからフレームを取得する
 - 各フレームで 3D 姿勢推定を行う
 - 推定結果から腰・左足・右足の位置を取り出す
-- それらを OSC で送信する
+- それらを VRChat 向けに OSC で送信する
 - 同時に 2D 骨格と推論時間を画面表示する
 
 実行まわりの前提:
