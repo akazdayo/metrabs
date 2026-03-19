@@ -1,49 +1,36 @@
-## この fork の目的
+## プロジェクト概要
 
-この fork の目的は、**Metrabs を使って VRChat OSC のフルトラを実装すること**です。
+このプロジェクトは、**Metrabs を使って VRChat OSC のフルトラを実装すること**を目的とした fork です。
 
-現在の主な実行入口は `main.py` です。
+Web カメラ映像から人物の 3D 姿勢を推定し、VRChat で扱いやすい形に変換して OSC で送信します。
+現在は腰・左足・右足をトラッカーとして扱う構成が中心です。
 
-`main.py` は次のことを行います。
-- PyTorch 版 Metrabs モデルをロードする
-- Web カメラからフレームを取得する
-- 各フレームで 3D 姿勢推定を行う
-- 推定結果から腰・左足・右足の位置を取り出す
-- それらを VRChat 向けに OSC で送信する
-- 同時に 2D 骨格と推論時間を画面表示する
+## 現在の構成
 
-実行まわりの前提:
-- 実行コマンドは `uv run main.py`
-- 依存管理は **uv** 中心
-- **Nix はネイティブ依存の補助**（OpenGL / Qt / X11 など）
-- 実行時の `DATA_ROOT` は flake 側で `DATA_ROOT="${DATA_ROOT:-$PWD/data}"` を補います
+主な実行入口は `main.py` で、次の処理を行います。
+- PyTorch 版 Metrabs モデルのロード
+- Web カメラからのフレーム取得
+- 各フレームでの 3D 姿勢推定
+- 腰・左足・右足の位置抽出
+- VRChat 向け OSC 送信
+- 2D 骨格と推論時間の画面表示
 
-## Quick start
+## 実行前提
 
-### Nix を使う場合
+この fork は **Nix 前提** です。
+ネイティブ依存（OpenGL / Qt / X11 など）は flake で揃え、Python パッケージ管理には `uv` を使います。
+`DATA_ROOT` は flake 側で `DATA_ROOT="${DATA_ROOT:-$PWD/data}"` を補います。
 
-```bash
-nix develop
-uv sync
-uv run main.py
-```
+## 開発状況メモ
 
-### flake app から実行する場合
-
-```bash
-nix run
-```
-
-## 現在の実態について
-
-- この repo では `nix develop -c uv run python -c "import main"` までは確認済みです。
+- `nix develop -c uv run python -c "import main"` までは確認済みです。
 - TensorFlow の整理は進めていますが、現状は `posepile` 経由でまだ transitively 入ります。
 - そのため「完全な TensorFlow 除去」はまだ終わっていません。
 
-## 注意
+## 備考
 
-以下の README 本文は **upstream 由来の歴史的な説明** を多く含みます。
-特に TensorFlow SavedModel の説明や demo 記述は、この fork の現在の主用途とは一致しない部分があります。
+以下の README 本文は upstream 由来の説明を含みます。
+特に TensorFlow SavedModel や一部 demo 記述は、この fork の現在の主用途とは一致しない部分があります。
 
 以下、元リポジトリのREADME.md本文
 
