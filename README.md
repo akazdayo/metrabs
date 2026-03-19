@@ -1,4 +1,33 @@
 このリポジトリは[MeTRAbs](https://github.com/isarandi/metrabs)を元に大きく改変されています。
+
+## このforkの実行方針
+
+- **Python依存は uv で管理**します
+- **Nix は OpenCV / Qt / OpenGL / X11 などのネイティブ依存の補助だけ**に使います
+- ふだんの実行は `uv run main.py` を前提にします
+- Nix を使う場合も、Pythonパッケージ解決は `uv` が担当します
+
+### Quick start
+
+```bash
+# Nixあり
+nix develop
+uv sync
+uv run main.py
+
+# もしくは flake app 経由
+nix run
+```
+
+### Optional dependencies
+
+TensorFlow 系は通常実行には不要です。
+`metrabs_pytorch/convert_model_from_tf.py` を使う時だけ optional dependency を入れてください。
+
+```bash
+uv sync --extra convert
+```
+
 以下、元リポジトリのREADME.md本文
 
 # MeTRAbs Absolute 3D Human Pose Estimator

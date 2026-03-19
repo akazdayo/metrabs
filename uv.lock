@@ -724,11 +724,15 @@ dependencies = [
     { name = "opencv-python" },
     { name = "posepile" },
     { name = "python-osc" },
-    { name = "tensorflow" },
-    { name = "tensorflow-hub" },
     { name = "torch" },
     { name = "torchvision" },
     { name = "ultralytics" },
+]
+
+[package.optional-dependencies]
+convert = [
+    { name = "tensorflow" },
+    { name = "tensorflow-hub" },
 ]
 
 [package.metadata]
@@ -742,12 +746,13 @@ requires-dist = [
     { name = "opencv-python", specifier = ">=4.11.0.86" },
     { name = "posepile", git = "https://github.com/isarandi/posepile.git" },
     { name = "python-osc", specifier = ">=1.9.3" },
-    { name = "tensorflow", specifier = "==2.15" },
-    { name = "tensorflow-hub", specifier = ">=0.16.1" },
+    { name = "tensorflow", marker = "extra == 'convert'", specifier = "==2.15" },
+    { name = "tensorflow-hub", marker = "extra == 'convert'", specifier = ">=0.16.1" },
     { name = "torch", specifier = ">=2.9.1" },
     { name = "torchvision", specifier = ">=0.24.1" },
     { name = "ultralytics" },
 ]
+provides-extras = ["convert"]
 
 [[package]]
 name = "ml-dtypes"
