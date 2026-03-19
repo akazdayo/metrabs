@@ -1,4 +1,27 @@
-このリポジトリは[MeTRAbs](https://github.com/isarandi/metrabs)を元に大きく改変されています。
+## プロジェクト概要
+
+このプロジェクトは、**Metrabs を使って VRChat OSC のフルトラを実装すること**を目的とした fork です。
+
+Web カメラ映像から人物の 3D 姿勢を推定し、VRChat で扱いやすい形に変換して OSC で送信します。
+現在は腰・左足・右足をトラッカーとして扱う構成が中心です。
+
+## 現在の構成
+
+主な実行入口は `main.py` で、次の処理を行います。
+- PyTorch 版 Metrabs モデルのロード
+- Web カメラからのフレーム取得
+- 各フレームでの 3D 姿勢推定
+- 腰・左足・右足の位置抽出
+- VRChat 向け OSC 送信
+- 2D 骨格と推論時間の画面表示
+
+## Quick start
+
+```bash
+nix develop
+uv sync
+uv run main.py
+```
 
 以下、元リポジトリのREADME.md本文
 
