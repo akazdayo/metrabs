@@ -1,5 +1,42 @@
 このリポジトリは[MeTRAbs](https://github.com/isarandi/metrabs)を元に大きく改変されています。
 
+## この fork について
+
+この fork は upstream README にある TensorFlow 中心の使い方とはかなり異なり、現在は **PyTorch + webcam + OSC** 用途に寄っています。
+
+主な差分:
+- 実行入口は `main.py`
+- 依存管理は **uv** 中心
+- **Nix はネイティブ依存の補助**（OpenGL / Qt / X11 など）
+- 実行時の `DATA_ROOT` は flake 側で `DATA_ROOT="${DATA_ROOT:-$PWD/data}"` を補います
+
+## Quick start
+
+### Nix を使う場合
+
+```bash
+nix develop
+uv sync
+uv run main.py
+```
+
+### flake app から実行する場合
+
+```bash
+nix run
+```
+
+## 現在の実態について
+
+- この repo では `nix develop -c uv run python -c "import main"` までは確認済みです。
+- TensorFlow の整理は進めていますが、現状は `posepile` 経由でまだ transitively 入ります。
+- そのため「完全な TensorFlow 除去」はまだ終わっていません。
+
+## 注意
+
+以下の README 本文は **upstream 由来の歴史的な説明** を多く含みます。
+特に TensorFlow SavedModel の説明や demo 記述は、この fork の現在の主用途とは一致しない部分があります。
+
 以下、元リポジトリのREADME.md本文
 
 # MeTRAbs Absolute 3D Human Pose Estimator
