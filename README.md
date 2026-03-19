@@ -21,17 +21,6 @@ Web カメラ映像から人物の 3D 姿勢を推定し、VRChat で扱いや�
 ネイティブ依存（OpenGL / Qt / X11 など）は flake で揃え、Python パッケージ管理には `uv` を使います。
 `DATA_ROOT` は flake 側で `DATA_ROOT="${DATA_ROOT:-$PWD/data}"` を補います。
 
-## 開発状況メモ
-
-- `nix develop -c uv run python -c "import main"` までは確認済みです。
-- TensorFlow の整理は進めていますが、現状は `posepile` 経由でまだ transitively 入ります。
-- そのため「完全な TensorFlow 除去」はまだ終わっていません。
-
-## 備考
-
-以下の README 本文は upstream 由来の説明を含みます。
-特に TensorFlow SavedModel や一部 demo 記述は、この fork の現在の主用途とは一致しない部分があります。
-
 以下、元リポジトリのREADME.md本文
 
 # MeTRAbs Absolute 3D Human Pose Estimator
