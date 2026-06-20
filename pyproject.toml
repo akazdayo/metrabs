@@ -14,7 +14,7 @@ dependencies = [
     "opencv-python>=4.11.0.86",
     "posepile",
     "python-osc>=1.9.3",
-    "torch>=2.9.1",
+    "torch>=2.12.0",
     "torchvision>=0.24.1",
     "ultralytics",
 ]
